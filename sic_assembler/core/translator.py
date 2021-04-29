@@ -10,6 +10,7 @@ class Translator:
         self.LEN = 0
         self.symbolTable = dict()
         self.type = type_
+        self.text = ""
         self.output = ""
         self.header = ""
         self.end = ""
@@ -18,15 +19,6 @@ class Translator:
         self._pass1(self.tokens)
         self._pass2(self.tokens)
         return self._construct(self.header, self.output, self.end)
-        
-
-    def _construct(self, header, text, end):
-        opt = f"H{header.upper()}\n"
-        len_ = hex(int(len(text)/2))[2:]
-        opt += f"T{'{0:0{1}x}'.format(self.START, 6)}{len_}"
-        opt += f"{text.upper()}\n"
-        opt += f"E{end.upper()}\n"
-        return opt
 
     def _pass1(self, tokens):
         tokens = deepcopy(tokens)
@@ -50,6 +42,7 @@ class Translator:
                     self.LEN = locctr - self.START
                     break
                 else:
+                    print(f"\033[38;5;13m locctr -> {locctr}\033[0;0;0m")
                     locctr = self._pass1ProcessDirective(token, locctr)
             elif token.type == self.type:
                 locctr += 3
@@ -70,39 +63,53 @@ class Translator:
         if tokens[0].type == "directive" and tokens[0].ins == "START":
             locctr = int(tokens[0].operand[0], 16)
             self.START = locctr
-            self._write_start(tokens[0].label)
+            self._writeStart(tokens[0].label)
             tokens.pop(0)
 
         for token in tokens:
             if token.ins == "END":
                 if token.operand[0]:
-                    self._write_end(self.symbolTable[token.operand[0]])
+                    self._writeText()
+                    self._writeEnd(self.symbolTable[token.operand[0]])
                 else:
-                    self._write_end(self.LEN)
+                    self._writeEnd(self.LEN)
             elif token.type == "directive":
                 locctr = self._pass2ProcessDirective(token, locctr)
             elif token.type == self.type:
                 locctr = self._pass2ProcessInstruction(token, locctr)
-            print("{:^10} {:^10} {:^10}".format("LINE RESULT", locctr, self.output))
+            print("{:^10} {:^10} {:^10}".format("LINE RESULT", locctr, self.text))
 
-    def _write_start(self, progname):
+    def _writeStart(self, progname):
         print("write start")
         output = f"{progname} "
-        output += self._extendHexLen(self.START)
-        output += self._extendHexLen(self.LEN)
+        output += "{0:0{1}x}".format(self.START, 6)
+        output += "{0:0{1}x}".format(self.LEN, 6)
         self.header += output
 
-    def _write_end(self, addr):
+    def _writeEnd(self, addr):
         print("write end")
-        self.end += self._extendHexLen(addr)
+        self.end += "{0:0{1}x}".format(addr, 6)
 
-    def _extendHexLen(self, hex_):
-        hex_ = hex(hex_).upper()
-        hex_ = hex_[2:]
-        n = 6 - len(hex_)
-        for i in range(0, n):
-            hex_ = "0" + hex_
-        return hex_
+
+    def _construct(self, header, output, end):
+        opt = f"H{header.upper()}\n"
+        # len_ = hex(int(len(text)/2))[2:]
+        # opt += f"T{'{0:0{1}x}'.format(self.START, 6)}{len_}"
+        # opt += f"{text.upper()}\n"
+        opt += f"{output}"
+        opt += f"E{end.upper()}\n"
+        return opt
+
+    def _writeText(self):
+        len_ = hex(int(len(self.text)/2))[2:]
+        print(f"{'='*50}\n{'='*50}")
+        self.output += f"T{'{0:0{1}x}'.format(self.START, 6)}{len_}"
+        self.output += f"{self.text.upper()}\n"
+        print(f"OUTPUT UPDATE -> {self.output}")
+        print(f"{'='*50}\n{'='*50}")
+        self.text = ""
+        # self.output += f"T{'{0:0{1}x}'.format(self.START, 6)}{len_}"
+        # self.output += f"{self.text.upper()}\n"
 
     def _processBYTEC(self, operand):
         constant = ""
@@ -124,7 +131,12 @@ class Translator:
         if token.ins == "WORD":
             return locctr + 3
         elif token.ins == "BYTE":
-            return locctr + 3
+            if token.operand[0][0] == 'X':
+                return locctr + int((len(token.operand) - 3) / 2)
+            elif token.operand[0][0] == 'C':
+                return locctr + int(len(token.operand) - 3)
+            else:
+                return locctr + 3
         elif token.ins == "RESB":
             return locctr + int(token.operand[0])
         elif token.ins == "RESW":
@@ -136,18 +148,28 @@ class Translator:
         print("Processing Instruction... (Pass 2)")
         print(token)
         if(token.ins == "RSUB"):
-            self.output += hex(token.op)[2:] + "0000"
+            self.text += hex(token.op)[2:] + "0000"
             return locctr + 3
-        print(f"{token.ins} -> {hex(token.op)}")
+        
+        print(f"\033[38;5;10m{token.ins} -> {hex(token.op)}\033[0;0;0m")
         print(f"Adding {hex(token.op)[2:]}")
+        
         opcode = hex(token.op)[2:]
+        
         print(f"operand[0] = {token.operand[0]}")
         print(f"label = {token.label}")
         print(f"symbol table = {self.symbolTable}")
         print(f"from symbol table = {self.symbolTable.get(token.operand[0])}")
+        
         operand = str( token.operand[0] if(self.symbolTable[token.operand[0]] is None) else self.symbolTable[token.operand[0]] )
-        self.output += self._generateCode(opcode, operand)
-        print(self.output)
+        if locctr + 3 - self.START > 30:
+            self._writeText()
+            self.START = locctr
+            self.text = self._generateCode(opcode, operand)
+        else:
+            self.text += self._generateCode(opcode, operand)
+        
+        print(self.text)
         print(
             "----------------------------------------------------------------------------------------------------------------------------"
         )
@@ -161,10 +183,11 @@ class Translator:
         )
         if token.ins == "WORD":
             if locctr + 3 - self.START > 30:
+                self._writeText()
                 self.START = locctr
-                self.output = self._extendHexLen(int(token.operand[0]))
+                self.text = "{0:0{1}x}".format(int(token.operand[0]), 6)
             else:
-                self.output += self._extendHexLen(int(token.operand[0]))
+                self.text += "{0:0{1}x}".format(int(token.operand[0]), 6)
             return locctr + 3
         elif token.ins == "BYTE":
             operandlen = 0
@@ -176,11 +199,12 @@ class Translator:
                 operandlen = int(len(token.operand[0]) - 3)
                 context = self._processBYTEC(token.operand[0])
             if locctr + 3 - self.START > 30:
+                self._writeText()
                 self.START = locctr
-                self.output = context
+                self.text = context
             else:
-                self.output += context
-            return locctr + 3
+                self.text += context
+            return locctr + operandlen
         elif token.ins == "RESB":
             return locctr + int(token.operand[0])
         elif token.ins == "RESW":
@@ -192,7 +216,8 @@ class Translator:
         instruction = 0
         print("Generating opcode")
         convertedOpcode = int(opcode, 16) * 65536
-        print(f"Got code {opcode} -> {convertedOpcode}")
+        # print(f"\033[38;5;10m{out}\033[0;0;0m")
+        print(f"\033[38;5;10mGot code {opcode} -> {convertedOpcode}\033[0;0;0m")
         print(f"Got operand[0] {operand} -> {int(operand)}")
         instruction = int(convertedOpcode) + int(operand)
         insConverted = "{0:0{1}x}".format(instruction, 6)

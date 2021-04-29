@@ -17,7 +17,6 @@ class Assembler:
         print("=" * 60)
         print(res)
         print("=" * 60)
-        print(f'{"=" * 26}EXPECTED{"=" * 26}')
 
     @staticmethod
     def _readasm(path):
