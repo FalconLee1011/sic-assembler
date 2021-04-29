@@ -1,4 +1,5 @@
 from copy import deepcopy
+from re import sub as reSub
 
 from ..instructions.sic import INSTRUCTIONS
 
@@ -192,12 +193,16 @@ class Translator:
                 self.text += "{0:0{1}x}".format(int(token.operand[0]), 6)
             return locctr + 3
         elif token.ins == "BYTE":
+            print(f"\033[38;5;4mGOT DIRECTIVE BYTE\033[0;0;0m")
+            print(f"\033[38;5;4m╰➤{token}\033[0;0;0m")
             operandlen = 0
             context = ""
-            if token.operand[0] == "X":
-                operandlen = int((len(token.operand[0] - 3) / 2))
-                context = token.operand[0][2 : len(token.operand[0]) - 1]
-            elif token.operand[0] == "C":
+            if token.operand[0][0] == "X":
+                operandlen = int((len(token.operand[0]) - 3) / 2)
+                # context = token.operand[0][2 : len(token.operand[0]) - 1]
+                context = reSub(r"'|X|x", "", token.operand[0])
+                print(f"\033[38;5;4m╰──────➤{token.operand[0]}\033[0;0;0m")
+            elif token.operand[0][0] == "C":
                 operandlen = int(len(token.operand[0]) - 3)
                 context = self._processBYTEC(token.operand[0])
             if locctr + 3 - self.START > 30:
@@ -205,6 +210,9 @@ class Translator:
                 self.START = locctr
                 self.text = context
             else:
+                print("+"*30)
+                print(context)
+                print("+"*30)
                 self.text += context
             return locctr + operandlen
         elif token.ins == "RESB":
