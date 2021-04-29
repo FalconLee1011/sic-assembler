@@ -42,7 +42,7 @@ class Translator:
                     self.LEN = locctr - self.START
                     break
                 else:
-                    print(f"\033[38;5;13m locctr -> {locctr}\033[0;0;0m")
+                    print(f"\033[38;5;13m locctr -> {locctr} ({hex(locctr)})\033[0;0;0m")
                     locctr = self._pass1ProcessDirective(token, locctr)
             elif token.type == self.type:
                 locctr += 3
@@ -131,12 +131,15 @@ class Translator:
         if token.ins == "WORD":
             return locctr + 3
         elif token.ins == "BYTE":
+            print(f"\033[38;5;4mGOT DIRECTIVE BYTE\033[0;0;0m")
+            print(f"\033[38;5;4m╰➤{token}\033[0;0;0m")
             if token.operand[0][0] == 'X':
-                return locctr + int((len(token.operand) - 3) / 2)
+                return locctr + int((len(token.operand[0]) - 3) / 2)
             elif token.operand[0][0] == 'C':
-                return locctr + int(len(token.operand) - 3)
-            else:
-                return locctr + 3
+                print(f"\033[38;5;4m╰───➤{locctr} + {int(len(token.operand[0]) - 3)}\033[0;0;0m")
+                return locctr + int(len(token.operand[0]) - 3)
+            # else:
+            #     return locctr + 3
         elif token.ins == "RESB":
             return locctr + int(token.operand[0])
         elif token.ins == "RESW":
@@ -160,14 +163,13 @@ class Translator:
         print(f"label = {token.label}")
         print(f"symbol table = {self.symbolTable}")
         print(f"from symbol table = {self.symbolTable.get(token.operand[0])}")
-        
-        operand = str( token.operand[0] if(self.symbolTable[token.operand[0]] is None) else self.symbolTable[token.operand[0]] )
+
         if locctr + 3 - self.START > 30:
             self._writeText()
             self.START = locctr
-            self.text = self._generateCode(opcode, operand)
+            self.text = self._generateCode(opcode, token.operand)
         else:
-            self.text += self._generateCode(opcode, operand)
+            self.text += self._generateCode(opcode, token.operand)
         
         print(self.text)
         print(
@@ -216,10 +218,14 @@ class Translator:
         instruction = 0
         print("Generating opcode")
         convertedOpcode = int(opcode, 16) * 65536
+        operand_0 = str( operand[0] if(self.symbolTable[operand[0]] is None) else self.symbolTable[operand[0]] )
+        if len(operand) == 2:
+            if operand[1] == 'X':
+                instruction += 32768
         # print(f"\033[38;5;10m{out}\033[0;0;0m")
         print(f"\033[38;5;10mGot code {opcode} -> {convertedOpcode}\033[0;0;0m")
-        print(f"Got operand[0] {operand} -> {int(operand)}")
-        instruction = int(convertedOpcode) + int(operand)
+        print(f"Got operand[0] {operand_0} -> {int(operand_0)}")
+        instruction = int(convertedOpcode) + int(operand_0)
         insConverted = "{0:0{1}x}".format(instruction, 6)
         print(f"Done generate code -> {instruction} -> {insConverted}")
         return insConverted
