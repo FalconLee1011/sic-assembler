@@ -112,17 +112,6 @@ class Translator:
         # self.output += f"T{'{0:0{1}x}'.format(self.START, 6)}{len_}"
         # self.output += f"{self.text.upper()}\n"
 
-    def _processBYTEC(self, operand):
-        constant = ""
-        for i in range(2, len(operand) - 1):
-            tmp = hex(ord(operand[i]))
-            tmp = tmp[2:]
-            if len(tmp) == 1:
-                tmp = "0" + tmp
-            tmp = tmp.upper()
-            constant += tmp
-        return constant
-
     def _pass1ProcessDirective(self, token, locctr):
         print("Processing Directive... (Pass 1)")
         print(token)
@@ -204,7 +193,8 @@ class Translator:
                 print(f"\033[38;5;4m╰──────➤{token.operand[0]}\033[0;0;0m")
             elif token.operand[0][0] == "C":
                 operandlen = int(len(token.operand[0]) - 3)
-                context = self._processBYTEC(token.operand[0])
+                # context = self._processBYTEC(token.operand[0])
+                context = "{0:0{1}x}".format(int("".join([ hex(ord(cx))[2:] for cx in token.operand[0][2:len(token.operand[0]) - 1]]), 16), 6).upper()
             if locctr + 3 - self.START > 30:
                 self._writeText()
                 self.START = locctr

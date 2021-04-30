@@ -33,4 +33,4 @@ class Assembler:
     @staticmethod
     def _writeasm(path, code):
         with open(path, "w") as f:
-            f.write(code)
+            f.write(code.upper())
